@@ -1,5 +1,5 @@
 <?php
-namespace Hivelocity\classes;
+namespace HivelocityPricingTool\classes;
 
 class Api {
     static private $apiUrl;
@@ -29,8 +29,6 @@ class Api {
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $postJson);
             }
         }
-		
-		logActivity('Url de petición: '.$url);
         
         curl_setopt($ch, CURLOPT_URL,               $url);
         curl_setopt($ch, CURLOPT_FAILONERROR,       false);
@@ -38,11 +36,14 @@ class Api {
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER,    0);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER,    1);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST,     $httpMethod);
-		curl_setopt($ch, CURLOPT_TIMEOUT,			120);
-		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 	30);
+        
+        //curl_setopt($ch, CURLOPT_COOKIESESSION,     true);
+        //curl_setopt($ch, CURLOPT_COOKIEJAR,         __DIR__."/q/jar");
+        //curl_setopt($ch, CURLOPT_COOKIEFILE,        __DIR__."/q/file");
         
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
                 "Content-Type: application/json",
+                "User-Agent: PostmanRuntime/7.26.8",
                 "Accept: */*",
                 "Accept-Encoding: ''",
                 "X-API-KEY: $apiKey"
@@ -60,14 +61,13 @@ class Api {
             
             $action     = "Hivelocity API Call";
             $request    = array(
-                "API URL"   => self::$apiUrl,
                 "Resource"  => $resource,
                 "Method"    => $httpMethod,
                 "Fields"    => !empty($postFields)?$postFields:"",
                 "Json"      => !empty($postJson)?$postJson:"",
                 "Query"     => !empty($postQuery)?$postQuery:"",
             );
-            logModuleCall("Hivelocity", $action, $request, "", $response);
+            //logModuleCall("Hivelocity", $action, $request, "", $response);
         }
         //debug
         
@@ -80,10 +80,10 @@ class Api {
             $response = json_decode($response, true);
             
             if(json_last_error() != JSON_ERROR_NONE) {
-                throw new \Exception("API response is invalid.");
+                throw new \Exception("API response is invalid. ".$rawResponse);
             }
             
-            if(isset($response["message"]) && isset($response["code"]) && $response["code"] > 202) {
+            if(isset($response["message"]) && isset($response["code"]) && $response["code"] != 201) {
                 
                 if(is_array($response["message"])) {
                     $message = implode(" ", $response["message"]);
@@ -94,7 +94,7 @@ class Api {
                 throw new \Exception($message);
             }
             
-            if(isset($response["description"]) && isset($response["code"]) && $response["code"] > 202) {
+            if(isset($response["description"]) && isset($response["code"]) && $response["code"] > 201) {
                 
                 if(is_array($response["description"])) {
                     $message = implode(" ", $response["description"]);
@@ -138,7 +138,7 @@ class Api {
             }
             
         } else {
-            //throw new \Exception("API response is invalid.");
+            throw new \Exception("API response is invalid.");
         }
         return $response;
     }
@@ -161,26 +161,8 @@ class Api {
     
     static public function getProductOptions($productId) {
         
-        $resource = "/product/$productId/options";
-        $response = self::sendRequest($resource);
-        
         $resource = "/product/$productId/options?groupBy=upgrade";
         $response = self::sendRequest($resource);
-        
-        return $response;
-    }
-
-    static public function getBackup($productId,$optionId) {
-        
-        $resource = "/bare-metal-devices/";
-        
-        $postFields = array(
-            "period" => "hourly",
-            "productId" => $productId,
-            "option_ids" => $optionId,
-        );
-        
-        $response = self::sendRequest($resource, "GET", $postFields, true);
         
         return $response;
     }
@@ -232,7 +214,7 @@ class Api {
         return $response;
     }
     
-    static public function configureDeployment($deploymentId, $productId, $locationId, $osId, $options, $hostName, $billingPeriod) {
+    static public function configureDeployment($deploymentId, $productId, $locationId, $osId, $panelId, $hostName, $billingPeriod) {
         
         $resource = "/deploy/$deploymentId";
         
@@ -242,13 +224,12 @@ class Api {
             "operatingSystem"   => $osId,
             "hostnames"         => array($hostName),
             "productId"         => $productId,
-            "options"           => $options,
         );
-        /*
+        
         if(!empty($panelId)) {
             $postFields["options"] = array($panelId);
         }
-        */
+        
         $response = self::sendRequest($resource, "PUT", $postFields);
         
         return $response;
@@ -266,6 +247,7 @@ class Api {
         
         return $response;
     }
+    
     
     static public function getInvoiceList() {
         
@@ -285,15 +267,6 @@ class Api {
         return $response;
     }
     
-    static public function getOrderDetails($orderId) {
-        
-        $resource = "/order/$orderId";
-        
-        $response = self::sendRequest($resource);
-        
-        return $response;
-    }
-    
     static public function getServiceList($orderId) {
         
         $resource = "/service/?orderId=$orderId";
@@ -301,16 +274,7 @@ class Api {
         $response = self::sendRequest($resource);
         
         return $response;
-    }
-    
-    static public function getServiceDetails($serviceId) {
-        
-        $resource = "/service/$serviceId";
-        
-        $response = self::sendRequest($resource);
-        
-        return $response;
-    }
+    }    
     
     static public function getDeviceList() {
         
@@ -329,38 +293,12 @@ class Api {
         return $response;
     }
     
-    static public function getInitialPassword($deviceId) {
-        
-        $resource = "/device/$deviceId/initial-creds";
-        $response = self::sendRequest($resource);
-        
-        return $response;
-    }
-        
-    static public function getIpAssigment($deviceId) {
-        
-        $resource = "/device/$deviceId/ip_assignment";
-        $response = self::sendRequest($resource);
-        
-        return $response;
-    }
-
-    static public function getIpAssigments($deviceId) {
-        
-        $resource = "/device/$deviceId/ips";
-        $response = self::sendRequest($resource);
-        
-        return $response;
-    }
-    
-    static public function cancelDevice($deviceId, $serviceId) {
+    static public function cancelDevice($deviceId) {
         
         $resource   = "/cancellation/cancellation";
         
         $postFields = array(
-            "deviceId"  => $deviceId,
-            "serviceId" => $serviceId,
-            "reason"    => "I am a reseller and my customer cancelled",
+            "deviceId" => $deviceId,
         );
         
         $response   = self::sendRequest($resource, "POST", $postFields);
@@ -368,86 +306,14 @@ class Api {
         return $response;
     }
     
-    static public function getGraph($deviceId, $metric_type="CPU_USAGE", $period = "day", $customStart = null, $customEnd = null) {
-        $queryParams = "metricType=$metric_type&imageHeight=300";
-
-        $now = new \DateTime("now", new \DateTimeZone("UTC"));
-		
-		logActivity('Periodo de tiempo: '.$period);
-
-		// Calcular startTime y endTime según el intervalo
-		switch ($period) {
-			case "day":
-				$startTime = clone $now;
-				$startTime->modify("-1 day");
-				$endTime = $now;
-				break;
-
-			case "week":
-				$startTime = clone $now;
-				$startTime->modify("-1 week");
-				$endTime = $now;
-				break;
-
-			case "month":
-				$startTime = clone $now;
-				$startTime->modify("-1 month");
-				$endTime = $now;
-				break;
-
-			case "custom":
-				if ($customStart && $customEnd) {
-					$startTime = DateTime::createFromFormat('Y-m-d H:i:s', $customStart, new DateTimeZone("UTC"));
-					$endTime = DateTime::createFromFormat('Y-m-d H:i:s', $customEnd, new DateTimeZone("UTC"));
-
-					// Validar fechas personalizadas
-					if (!$startTime || !$endTime) {
-						return "Error: Fechas personalizadas inválidas.";
-					}
-				} else {
-					return "Error: Debes proporcionar fechas personalizadas para el intervalo 'custom'.";
-				}
-				break;
-
-			default:
-				// Si el intervalo no es válido, usar 1 día por defecto
-				$startTime = clone $now;
-				$startTime->modify("-1 day");
-				$endTime = $now;
-				break;
-		}
-		
-		$startTimestamp = $startTime->getTimestamp();
-		$endTimestamp = $endTime->getTimestamp();
-		
-		$queryParams .= "&startTime=$startTimestamp&endTime=$endTimestamp";
+    static public function getGraph($deviceId, $period = "day", $start = null, $end = null) {
         
-        $resource   = "vps/$deviceId/metrics?$queryParams";
-        
-        $postFields = array();
-        
-        $response   = self::sendRequest($resource, "GET", $postFields, true);
-        
-        return $response;
-    }
-    
-    static public function getIpmiData($deviceId) {
-        
-        $resource   = "/device/$deviceId/ipmi";
-        
-        $response   = self::sendRequest($resource, "GET");
-        
-        return $response;
-    }
-    
-    static public function getBandwidthDetails($deviceId, $period = "day", $start = null, $end = null) {
-        $resource   = "/bandwidth/device/$deviceId";
+        $resource   = "/bandwidth/device/$deviceId/image";
         
         $postFields = array(
             "period"    => $period,
             "start"     => $start,
             "end"       => $end,
-            "step"      => 43200,
             "interface" => "eth0",
         );
         
@@ -455,12 +321,19 @@ class Api {
         
         return $response;
     }
-
-    static public function getDevicePowerStatus($deviceId) {
+    
+    static public function getBandwidthDetails($deviceId, $period = "day", $start = null, $end = null) {
         
-        $resource   = "/device/$deviceId/power";
+        $resource   = "/bandwidth/device/$deviceId";
         
-        $response   = self::sendRequest($resource, "GET");
+        $postFields = array(
+            "period"    => $period,
+            "start"     => $start,
+            "end"       => $end,
+            "interface" => "eth0",
+        );
+        
+        $response   = self::sendRequest($resource, "POST", $postFields, true);
         
         return $response;
     }
@@ -491,144 +364,5 @@ class Api {
     static public function shutdownDevice($deviceId) {
         
         return self::executePowerAction($deviceId, "shutdown");
-    }
-    
-    static public function reloadDevice($deviceId, $osId) {
-        
-        $resource   = "/device/$deviceId/reload";
-        
-        $postFields = array(
-            "operatingSystemId"    => $osId,
-        );
-        
-        $response   = self::sendRequest($resource, "POST", $postFields);
-        
-        return $response;
-    }
-    
-    static public function getDomainList() {
-        
-        $resource   = "/domains/";
-        
-        $response   = self::sendRequest($resource, "GET");
-        
-        return $response;
-    }
-
-    static public function getDomain($domainId) {
-        
-        $resource   = "/domains/$domainId";
-        
-        $response   = self::sendRequest($resource, "GET");
-        
-        return $response;
-    }
-    
-    static public function addDomain($domainName) {
-        
-        $resource   = "/domains/";
-        
-        $postFields = array(
-            "name"    => $domainName,
-        );
-        
-        $response   = self::sendRequest($resource, "POST", $postFields);
-        
-        return $response;
-    }
-    
-    static public function removeDomain($domainId) {
-        
-        $resource   = "/domains/$domainId";
-        $response   = self::sendRequest($resource, "DELETE");
-        
-        return $response;
-    }
-    
-    static public function addRecord($domainId, $recordType, $recordData) {
-
-        $resource   = "/domains/$domainId/$recordType";
-        $response   = self::sendRequest($resource, "POST", $recordData);
-        
-        if($recordType == "mx-record") {
-            $response["type"] = "MX";
-        }
-        return $response;
-    }
-    
-    static public function editRecord($domainId, $recordType, $recordId, $recordData) {
-        
-        $resource   = "/domains/$domainId/$recordType/$recordId";
-        $response   = self::sendRequest($resource, "PUT", $recordData);
-        
-        if($recordType == "mx-record") {
-            $response["type"] = "MX";
-        }
-        
-        return $response;
-    }
-    
-    static public function removeRecord($domainId, $recordType, $recordId) {
-        
-        $resource   = "/domains/$domainId/$recordType/$recordId";
-        $response   = self::sendRequest($resource, "DELETE");
-        
-        return $response;
-    }
-    
-    static public function getDnsRecordList($domainId, $recordType) {
-        
-        if($recordType == "ptr") {
-            $resource   = "/domains/ptr";
-        } else {
-            $resource   = "/domains/$domainId/$recordType";
-        }
-        $response   = self::sendRequest($resource, "GET");
-        
-        if($recordType == "mx-record") {
-            
-            foreach($response as $key => $recordData) {
-                $response[$key]["type"] = "MX";
-            }
-        }
-        return $response;
-    }
-    
-    static public function allowIp($deviceId, $ip) {
-        
-        $resource   = "/device/$deviceId/ipmi/whitelist/";
-        
-        $postFields = array(
-            "custIp"    => $ip,
-        );
-        
-        $response   = self::sendRequest($resource, "POST", $postFields);
-        
-        return $response;
-    }
-    
-    static public function parseProductList($productList) {
-        
-        $productListParsed = array();
-        
-        foreach($productList as $location => $list) {
-            
-            
-            foreach($list as $productDetails) {
-                
-                $productId = $productDetails["product_id"];
-                
-                foreach($productDetails as $key => $value) {
-                    
-                    if($key == "monthly_location_premium") {
-                        continue;
-                    }
-                    $productListParsed[$productId][$key] = $value;
-                }
-                $productListParsed[$productId]["locations"][$location]["price"] = $productDetails["monthly_location_premium"];
-                $productListParsed[$productId]["locations"][$location]["stock"] = $productDetails["stock"];
-            }
-        }
-        return $productListParsed;
     }
 }
