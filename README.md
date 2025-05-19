@@ -1,3 +1,29 @@
+# Hivelocity WHMCS Module (Community Version)
+
+Hello Hivelocity GitHub community,
+
+Due to the abandonment of the original plugin by its developers, I decided to create my own version of this module. I’m aware that there’s still work to be done, but it began as a separate module and gradually evolved to meet the real needs of users.
+
+## 🔧 Features
+
+- **Template Support**: Includes support for the **Twenty-One** template by default, instead of **Six**, as it's more complete and modern.
+- **Billing Cycles**: Added more direct billing cycle options by integrating WHMCS's native billing periods.
+- **Improved UI**: More structured and visually enhanced layout for the product view.
+- **Backups View** (Addon):
+  - Displays basic backup information.
+  - Shows user credentials to the client.
+  - Adds direct console access from the user menu.
+
+## 🤝 Contributions
+
+Any contributions, suggestions, or improvements are welcome! Let’s continue to improve and use this module as it was meant to be.
+
+---
+
+**Best regards!**
+Modify By Qué Código
+
+
 # What's New!
 - Support for latest whmcs version 8.6.1/ Support for PHP 7.4 & 8.1.13, ioncube 12x
 - Auto creations / import of products and configurations options.
