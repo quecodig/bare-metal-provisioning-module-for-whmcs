@@ -54,9 +54,9 @@ class Cron {
             }
 
             $savedRemoteProductPrice    = Helpers::getHivelocityProductPrice($remoteProductId);
-            if($savedRemoteProductPrice === false) {
+            if($savedRemoteProductPrice['hivelocityProductPrice'] === false) {
                 Helpers::saveHivelocityProductPrice($remoteProductId, $remoteProductPrice, $disabledPeriods);
-            } elseif($savedRemoteProductPrice != $remoteProductPrice && $remoteProductPrice != 0) {
+            } elseif($savedRemoteProductPrice['hivelocityProductPrice'] != $remoteProductPrice && $remoteProductPrice != 0) {
                 Helpers::saveHivelocityProductPrice($remoteProductId, $remoteProductPrice, $disabledPeriods);
                 if (Helpers::isNotificationEnabled()) {
                     $command = 'SendAdminEmail';
