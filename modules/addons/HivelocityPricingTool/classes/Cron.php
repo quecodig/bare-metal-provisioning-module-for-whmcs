@@ -157,6 +157,7 @@ class Cron {
                         if (!in_array($cycle, $disabledPeriods)) {
                             // Calcular el precio directamente multiplicando por los meses
                             $finalPrice = $priceConverted * $months;
+                            logModuleCall('Hivelocity','synchronizeProducts','finalPrice',$finalPrice);
 
                             // Asignar precio al ciclo de facturación
                             $pricing[$currencyId][$cycle] = round($finalPrice, 2);
