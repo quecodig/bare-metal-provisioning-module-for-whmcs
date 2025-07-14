@@ -127,7 +127,7 @@
 		{foreach from=$snapshots item=snapshot}
 			<tr>
 				<td>{$snapshot.name}</td>
-				<td>{$snapshot.createdAt}</td>
+				<td>{$snapshot.createdAt|strtotime|date_format:"%d/%m/%Y %H:%M"}</td>
 				<td>{$snapshot.snapshotType}</td>
 				<td>
 					<a href="index.php?m=server_info&action=restore_snapshot&snapshot_id={$snapshot.id}&serviceid={$serviceId}" class="btn btn-primary">Restaurar</a>
@@ -141,7 +141,7 @@
 		<p>No hay snapshots disponibles.</p>
 	{/if}
 
-	<h3>Snapshots Programados <button id="createSnapshotBtn" class="btn btn-success" style="float: right">Crear Snapshot</button></h3>
+	<h3>Snapshots Programados <button id="createSnapshotBtn" class="btn btn-success" style="float: right; display: none">Crear Snapshot</button></h3>
 	{if $schedules}
 	<table class="schedule-table">
 		<thead>
@@ -149,7 +149,7 @@
 				<th>Nombre</th>
 				<th>Fecha Programada</th>
 				<th>Disco ID</th>
-				<th>Acciones</th>
+				<th style="display: none">Acciones</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -158,7 +158,7 @@
 				<td>{$schedule.snapshotScheduleId}</td>
 				<td>{$schedule.frecuency}</td>
 				<td>{$schedule.volumeId}</td>
-				<td>
+				<td style="display: none">
 					<a href="index.php?m=server_info&action=delete_schedule&schedule_id=1&serviceid=123" class="btn btn-danger">Eliminar</a>
 				</td>
 			</tr>
