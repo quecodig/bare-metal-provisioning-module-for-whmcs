@@ -145,10 +145,10 @@ add_hook('ClientAreaPageProductDetails', 1, function ($vars) {
     $secondarySidebar = Menu::context('secondarySidebar');
     if ($secondarySidebar) {
         $secondarySidebar->addChild('customTab', [
-            'label' => 'Mi Tab Personalizado',
-            'uri' => '#',
-            'icon' => 'fa-cogs',
-            'order' => 10,
+            'label' => 'Información General',
+            'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId,
+            'icon' => 'fa-info-circle',
+            'order' => 1,
             'attributes' => [
                 'id' => 'customTabLink',
                 'class' => 'custom-tab-link',
@@ -289,10 +289,10 @@ add_hook('ClientAreaSecondarySidebar', 1, function (MenuItem $secondarySidebar) 
 					$servicePanel = $secondarySidebar->getChild('serviceControl');
 
 					$servicePanel->addChild('Snapshots', array(
-						'label' => 'Snapshots (Beta)',
+						'label' => 'Gestionar Snapshots',
 						'uri'   => 'clientarea.php?action=productdetails&id=' . $serviceId . '&customaction=snapshots',
 						'icon'  => 'fa-camera',
-						'order' => 1,  // Antes de noVNC (que tiene 6)
+						'order' => 10,
 					));
 
 					// Añadir botón para abrir el popup de la consola noVNC
@@ -401,6 +401,29 @@ add_hook('ClientAreaSecondarySidebar', 1, function (MenuItem $secondarySidebar) 
 			));
 		}
 	}
+});
+
+add_hook('ClientAreaPrimaryNavbar', 1, function ($primaryNavbar) {
+    if ($_GET['action'] === 'productdetails' && isset($_GET['id'])) {
+        $serviceId = (int)$_GET['id'];
+        $service = Menu::context('service');
+        if (!$service) return;
+
+        $productDetails = $primaryNavbar->getChild('Service Details Tabs');
+        if (is_null($productDetails)) {
+            $productDetails = $primaryNavbar;
+        }
+
+        $productDetails->addChild('Snapshots', [
+            'label' => 'Snapshots',
+            'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId . '&customaction=snapshots',
+            'order' => 50,
+        ]);
+
+        if ($_GET['customaction'] === 'snapshots') {
+            $productDetails->getChild('Snapshots')->setCurrent(true);
+        }
+    }
 });
 
 add_hook('ClientAreaHeaderOutput', 1, function (array $vars) {

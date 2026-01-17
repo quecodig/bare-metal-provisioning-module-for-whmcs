@@ -8,9 +8,11 @@ function getServerApiKey($serviceId) {
 }
 
 // Obtener Snapshots desde la API
-function getSnapshots($vpsId, $apiKey) {
+function getSnapshots($vpsId, $apiKey, $facilityCode = '', $clientId = '') {
     $url = "https://core.hivelocity.net/api/v2/vps/snapshot?deviceId=$vpsId";
-    logActivity('URL DE LOS SNAPS '.print_r($url, true));
+    if ($facilityCode) $url .= "&facilityCode=$facilityCode";
+    if ($clientId) $url .= "&clientId=$clientId";
+
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -44,9 +46,10 @@ function getSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     return json_decode($response, true);
 }
 
-function getSchedules($vpsId, $apiKey) {
+function getSchedules($vpsId, $apiKey, $facilityCode = '') {
 	$url = "https://core.hivelocity.net/api/v2/vps/snapshotSchedule?deviceId=$vpsId";
-    logActivity('URL DE LOS SNAPS '.print_r($url, true));
+    if ($facilityCode) $url .= "&facilityCode=$facilityCode";
+
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -68,11 +71,14 @@ function createSnapshot($volumeId, $snapshotName, $apiKey, $facilityCode = 'TPA1
     
     $url = "https://core.hivelocity.net/api/v2/vps/snapshot";
     
-    $data = json_encode([
-        'volumeId' => $volumeId,     // OpenAPI Spec: volumeId (camelCase)
+    $payload = [
+        'volumeId' => (string)$volumeId,
         'name' => $snapshotName,
         'facilityCode' => $facilityCode
-    ]);
+    ];
+    if ($clientId) $payload['clientId'] = (int)$clientId;
+
+    $data = json_encode($payload);
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -120,9 +126,12 @@ function restoreSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     
     $url = "https://core.hivelocity.net/api/v2/vps/snapshot/$snapshotId";
     
-    $data = json_encode([
+    $payload = [
         'facilityCode' => $facilityCode
-    ]);
+    ];
+    if ($clientId) $payload['clientId'] = (int)$clientId;
+    
+    $data = json_encode($payload);
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -150,7 +159,7 @@ function createSnapshotSchedule($volumeId, $scheduleData, $apiKey, $facilityCode
     $url = "https://core.hivelocity.net/api/v2/vps/snapshotSchedule";
     
     $payload = [
-        'volumeId' => $volumeId,
+        'volumeId' => (string)$volumeId,
         'facilityCode' => $facilityCode,
         'intervalType' => strtoupper($scheduleData['intervalType']), // DAILY, WEEKLY, MONTHLY
         'hour' => (int)$scheduleData['hour'],
@@ -158,6 +167,7 @@ function createSnapshotSchedule($volumeId, $scheduleData, $apiKey, $facilityCode
         'maxSnapshots' => isset($scheduleData['maxSnapshots']) ? (int)$scheduleData['maxSnapshots'] : 1, // Default 1
         'timezone' => isset($scheduleData['timezone']) ? $scheduleData['timezone'] : 'UTC', // Default UTC
     ];
+    if ($clientId) $payload['clientId'] = (int)$clientId;
 
     if (isset($scheduleData['day'])) {
         $payload['day'] = (int)$scheduleData['day'];
@@ -228,9 +238,7 @@ function deleteSnapshotSchedule($scheduleId, $apiKey, $facilityCode = 'TPA1') {
     return json_decode($response, true);
 }
 
-function getVolumeId($vpsId, $apiKey) {
-    // Helper para obtener el ID real del volumen (disco) dado el ID del dispositivo VPS
-    // El endpoint /vps/{vpsId} suele retornar detalles que incluyen volumes
+function getVPSDetails($vpsId, $apiKey) {
     $url = "https://core.hivelocity.net/api/v2/vps/$vpsId";
     
     $ch = curl_init($url);
@@ -242,32 +250,23 @@ function getVolumeId($vpsId, $apiKey) {
     
     $response = curl_exec($ch);
     curl_close($ch);
-    
     $data = json_decode($response, true);
-    logActivity("QCServerInfo: getVolumeId Response for VPS $vpsId: " . print_r($data, true));
-    
-    // Asumimos que retornan un array de volúmenes o el primario.
-    // Ajustar según respuesta real. Por ahora asumimos que el usuario selecciona o se toma el raiz.
-    // Si la API retorna 'primary_volume_id' o similar, usarlo.
-    // Estructura común HV: { "primary_volume_id": 12345 ... } o en "volumes": [...]
-    
-    
-    // Check for "primaryDisk" object (V2 standard)
+
+    $details = [
+        'volumeId' => '',
+        'facilityCode' => $data['facilityCode'] ?? 'TPA1',
+        'clientId' => $data['clientId'] ?? ''
+    ];
+
     if (isset($data['primaryDisk']) && isset($data['primaryDisk']['id'])) {
-        return $data['primaryDisk']['id'];
-    }
-
-    // Check for "primary_volume_id" (Legacy/Alternative)
-    if (isset($data['primary_volume_id'])) {
-        return $data['primary_volume_id'];
-    }
-
-    // Fallback: Use first volume in "volumes" array
-    if (isset($data['volumes']) && is_array($data['volumes']) && !empty($data['volumes'])) {
-        return $data['volumes'][0]['id'];
+        $details['volumeId'] = $data['primaryDisk']['id'];
+    } elseif (isset($data['primary_volume_id'])) {
+        $details['volumeId'] = $data['primary_volume_id'];
+    } elseif (isset($data['volumes']) && !empty($data['volumes'])) {
+        $details['volumeId'] = $data['volumes'][0]['id'];
     }
     
-    return false;
+    return $details;
 }
 
 function getAssignedDeviceId($serviceId) {

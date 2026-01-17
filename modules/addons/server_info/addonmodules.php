@@ -30,35 +30,32 @@ function server_info_clientarea($vars) {
          return ['vars' => ['error' => 'Device ID not found for this service. Please contact support.']];
     }
 
+    // Obtener detalles del VPS una sola vez
+    $vpsDetails = getVPSDetails($deviceId, $apiKey);
+    $volumeId = $vpsDetails['volumeId'];
+    $facilityCode = $vpsDetails['facilityCode'];
+    $clientId = $vpsDetails['clientId'];
+
     // --- ACCIONES SNAPSHOTS ---
 
     // Crear Snapshot Manual
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action == 'create_snapshot') {
         $snapshotName = $_POST['snapshot_name'] ?? 'Snapshot-' . time();
-        
-        // Obtener Volume ID (Requerido para V2)
-        $volumeId = $_POST['volume_id'] ?? '';
-        if (empty($volumeId)) {
-             $volumeId = getVolumeId($deviceId, $apiKey);
-        } 
+        $postVolumeId = $_POST['volume_id'] ?? $volumeId;
 
-        $result = createSnapshot($volumeId, $snapshotName, $apiKey);
+        $result = createSnapshot($postVolumeId, $snapshotName, $apiKey, $facilityCode, $clientId);
         
-        // Clean buffer to avoid HTML pollution
         if (ob_get_length()) ob_clean();
         header('Content-Type: application/json');
-        echo json_encode(['success' => isset($result['id']) || isset($result['name']) ? true : false, 'response' => $result]);
+        echo json_encode(['success' => isset($result['taskId']) || isset($result['id']) ? true : false, 'response' => $result]);
         exit;
     }
-    
-
 
     // Eliminar Snapshot
     if ($action == 'delete_snapshot' && isset($_GET['snapshot_id'])) {
         $snapshotId = $_GET['snapshot_id'];
-        $result = deleteSnapshot($snapshotId, $apiKey);
+        $result = deleteSnapshot($snapshotId, $apiKey, $facilityCode);
         
-        // Redirigir para refrescar
         header("Location: index.php?m=server_info&action=productdetails&id=$serviceId&customaction=snapshots");
         exit;
     }
@@ -66,21 +63,18 @@ function server_info_clientarea($vars) {
     // Restaurar Snapshot
     if ($action == 'restore_snapshot' && isset($_GET['snapshot_id'])) {
         $snapshotId = $_GET['snapshot_id'];
-        $result = restoreSnapshot($snapshotId, $apiKey);
+        $result = restoreSnapshot($snapshotId, $apiKey, $facilityCode, $clientId);
         
-        // Redirigir con mensaje? Por ahora reload
         header("Location: index.php?m=server_info&action=productdetails&id=$serviceId&customaction=snapshots&msg=restored");
         exit;
     }
 
     // --- ACCIONES SCHEDULES ---
     
-    // Crear/Actualizar Schedule
+    // Crear Schedule
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action == 'create_schedule') {
         
         $frequency = $_POST['schedule'] ?? 'daily';
-        
-        // Parsear hora (HH:MM)
         $time = $_POST['time'] ?? '00:00';
         $hour = 0; 
         $minute = 0;
@@ -91,70 +85,51 @@ function server_info_clientarea($vars) {
         }
 
         $scheduleData = [
-            'intervalType' => $frequency, // functions.php lo convertirá a strtoupper
+            'intervalType' => $frequency,
             'hour' => $hour,
-            'minute' => $minute
+            'minute' => $minute,
+            'timezone' => 'UTC', // Podría ser dinámico si se requiere
+            'maxSnapshots' => 1
         ];
 
-        // Dia de la semana (Weekly)
         if ($frequency == 'weekly') {
-            // TPL envía 0-6 (0=Domingo). API V2 espera 1-7 (1=Lunes).
             $tplDay = (int)$_POST['weekDay'];
-            // Mapa: 1(Lun)->1, ..., 6(Sab)->6, 0(Dom)->7
             $weekday = ($tplDay === 0) ? 7 : $tplDay;
             $scheduleData['weekday'] = $weekday;
         }
         
-        // Dia del mes (Monthly)
         if ($frequency == 'monthly') {
-             // TPL actual no tiene input de día del mes, por defecto 1
              $scheduleData['day'] = 1;
         }
         
-        if ($action == 'create_schedule') {
-            // Obtener Volume ID para Create
-            $volumeId = $_POST['volume_id'] ?? '';
-            if (empty($volumeId)) {
-                 $volumeId = $_POST['disk'] ?? '';
-            }
-            if (empty($volumeId) || !is_numeric($volumeId)) {
-                 $realVolumeId = getVolumeId($deviceId, $apiKey); 
-                 if ($realVolumeId) {
-                     $volumeId = $realVolumeId;
-                 }
-            }
-            $result = createSnapshotSchedule($volumeId, $scheduleData, $apiKey);
-        }
+        $postVolumeId = $_POST['volume_id'] ?? $_POST['disk'] ?? $volumeId;
+        $result = createSnapshotSchedule($postVolumeId, $scheduleData, $apiKey, $facilityCode, $clientId);
         
-        // Clean buffer to avoid HTML pollution
         if (ob_get_length()) ob_clean();
         header('Content-Type: application/json');
-        echo json_encode(['success' => isset($result['id']) || isset($result['snapshotScheduleId']) ? true : false, 'response' => $result]);
+        echo json_encode(['success' => isset($result['snapshotScheduleId']) ? true : false, 'response' => $result]);
         exit;
     }
     
     // Eliminar Schedule
     if ($action == 'delete_schedule' && isset($_GET['schedule_id'])) {
         $scheduleId = $_GET['schedule_id'];
-        $result = deleteSnapshotSchedule($scheduleId, $apiKey);
+        $result = deleteSnapshotSchedule($scheduleId, $apiKey, $facilityCode);
         header("Location: index.php?m=server_info&action=productdetails&id=$serviceId&customaction=snapshots");
         exit;
     }
 
     // Default: Render Template
-    $snapshots = getSnapshots($deviceId, $apiKey);
-    $schedules = getSchedules($deviceId, $apiKey);
+    $snapshots = getSnapshots($deviceId, $apiKey, $facilityCode, $clientId);
+    $schedules = getSchedules($deviceId, $apiKey, $facilityCode);
     
-    // Obtener volume ID para el formulario si se necesita
-    $volumeId = getVolumeId($deviceId, $apiKey);
-
     return [
         'templatefile' => 'snapshots',
         'vars' => [
             'snapshots' => $snapshots,
             'schedules' => $schedules,
             'serviceId' => $serviceId,
-            'volumeId'  => $volumeId, // Para prellenar el formulario
+            'volumeId'  => $volumeId,
             'msg'       => $_GET['msg'] ?? ''
         ]
     ];
