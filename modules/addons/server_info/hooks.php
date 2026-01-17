@@ -158,25 +158,6 @@ add_hook('ClientAreaPageProductDetails', 1, function ($vars) {
     }
 });
 
-function getAssignedDeviceId($serviceId) {
-	$serviceId = intval($serviceId);
-	$pdo = Capsule::connection()->getPdo();
-	$pdo->beginTransaction();
-	$query = "SELECT tblcustomfieldsvalues.value 
-			  FROM tblcustomfieldsvalues 
-			  INNER JOIN tblcustomfields ON tblcustomfieldsvalues.fieldid = tblcustomfields.id 
-			  WHERE tblcustomfields.fieldname LIKE 'hivelocityDeviceId%' AND tblcustomfieldsvalues.relid = ?";
-	$statement = $pdo->prepare($query);
-	$statement->execute([$serviceId]);
-	$row = $statement->fetch();
-	$pdo->commit();
-	if (isset($row["value"]) && !empty($row["value"])) {
-		return $row["value"];
-	} else {
-		return false;
-	}
-}
-
 /**
  * Función para obtener la contraseña desde la API usando cURL
  */
