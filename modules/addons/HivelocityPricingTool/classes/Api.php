@@ -25,7 +25,7 @@ class Api {
                 $postQuery  = http_build_query($postFields);
                 $url        = $url."?".$postQuery;
             } else {
-                $postJson   = json_encode($postFields);
+                $postJson   = json_encode($postFields); 
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $postJson);
             }
         }

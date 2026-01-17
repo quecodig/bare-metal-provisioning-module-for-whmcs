@@ -188,6 +188,7 @@ class Addon {
             } */
             $remoteProductPrice    = Helpers::getHivelocityProductPrice($remoteProductId);
             $remotePrice    = $remoteProductPrice['hivelocityProductPrice'];
+            logActivity("HivelocityPricingTool2: Remote Product Price for Product ID $remoteProductId: " . $remotePrice);
             $disabledBillingPeriods = $remoteProductPrice["disabled_billing_periods"] ?? [];
             $convertedDisabledBillingPeriods = !empty($disabledBillingPeriods) ? implode(", ", $disabledBillingPeriods) : "No hay ciclos deshabilitados";
             

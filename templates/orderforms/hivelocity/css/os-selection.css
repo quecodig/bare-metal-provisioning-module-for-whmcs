@@ -1,0 +1,319 @@
+/* OS Selection Styling for WHMCS Order Forms */
+
+/* Common Styles for OS Selection */
+.os-selector {
+  margin-bottom: 20px;
+}
+
+.os-option {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.os-option:hover {
+  border-color: #ccc;
+  background-color: #f9f9f9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.os-option.selected {
+  border-color: #2196f3;
+  background-color: #e3f2fd;
+}
+
+.os-option.selected:after {
+  content: "\f00c";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #2196f3;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.os-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.os-option:hover .os-icon {
+  transform: scale(1.1);
+}
+
+.os-name {
+  font-weight: 600;
+}
+
+.os-version {
+  font-size: 12px;
+  color: #777;
+  margin-top: 5px;
+}
+
+/* OS Specific Colors */
+.os-icon i.fab.fa-ubuntu {
+  color: #e95420;
+}
+
+.os-icon i.fab.fa-centos {
+  color: #9b2f8a;
+}
+
+.os-icon i.fab.fa-debian {
+  color: #d70a53;
+}
+
+.os-icon i.fab.fa-windows {
+  color: #0078d6;
+}
+
+.os-icon i.fab.fa-freebsd {
+  color: #ab2b28;
+}
+
+.os-icon i.fas.fa-layer-group {
+  color: #8e44ad; /* For virtualization platforms */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 767px) {
+  .os-icon {
+    font-size: 24px;
+  }
+
+  .os-name {
+    font-size: 14px;
+  }
+
+  .os-version {
+    font-size: 10px;
+  }
+}
+
+/* Datacenter Selection Styling */
+.datacenter-map {
+  margin-bottom: 20px;
+}
+
+.datacenter-option {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.datacenter-option:hover {
+  border-color: #ccc;
+  background-color: #f9f9f9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.datacenter-option.selected {
+  border-color: #2196f3;
+  background-color: #e3f2fd;
+}
+
+.datacenter-option.selected:after {
+  content: "\f00c";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #2196f3;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.datacenter-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #2196f3;
+  transition: all 0.3s ease;
+}
+
+.datacenter-option:hover .datacenter-icon {
+  transform: scale(1.1);
+}
+
+.datacenter-name {
+  font-weight: 600;
+}
+
+/* RAID Configuration Styling */
+.raid-options {
+  margin-bottom: 20px;
+}
+
+.raid-option {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  height: 100%;
+  position: relative;
+}
+
+.raid-option:hover {
+  border-color: #ccc;
+  background-color: #f9f9f9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.raid-option.selected {
+  border-color: #2196f3;
+  background-color: #e3f2fd;
+}
+
+.raid-option.selected:after {
+  content: "\f00c";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #2196f3;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.raid-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #ff9800;
+  transition: all 0.3s ease;
+}
+
+.raid-option:hover .raid-icon {
+  transform: scale(1.1);
+}
+
+.raid-name {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.raid-description {
+  font-size: 12px;
+  color: #777;
+}
+
+/* Resource Sliders for VPS */
+.resource-sliders {
+  margin-top: 30px;
+}
+
+.resource-slider-container {
+  margin-bottom: 20px;
+}
+
+.resource-slider-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.slider-container {
+  padding: 0 10px;
+}
+
+.resource-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: #ddd;
+  outline: none;
+}
+
+.resource-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2196f3;
+  cursor: pointer;
+}
+
+.resource-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2196f3;
+  cursor: pointer;
+}
+
+/* Server Specifications */
+.server-specs {
+  margin-bottom: 30px;
+}
+
+.spec-box {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 15px;
+  text-align: center;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.spec-box:hover {
+  border-color: #ccc;
+  background-color: #f9f9f9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.spec-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #2196f3;
+}
+
+.spec-title {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.spec-value {
+  color: #666;
+}

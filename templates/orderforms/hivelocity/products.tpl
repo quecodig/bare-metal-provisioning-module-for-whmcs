@@ -30,7 +30,7 @@
         <div class="col-md-12 mb-4">
             <div class="search-box">
                 <div class="form-group">
-                    <input type="text" id="product-search" class="form-control form-control-lg" placeholder="{$LANG.orderForm.search}">
+                    <input type="text" id="product-search" class="form-control form-control-lg" placeholder="{$LANG.orderForm.search|default: "Buscar producto"}">
                 </div>
             </div>
         </div>
@@ -399,12 +399,14 @@
         transition: all 0.3s ease;
         background-color: #4a90e2;
         border-color: #4a90e2;
+		color: #FFFFFF;
     }
 
     .btn-order:hover {
         background-color: #3a7bc8;
         border-color: #3a7bc8;
         transform: translateY(-2px);
+		color: #FFFFFF;
         box-shadow: 0 5px 10px rgba(74, 144, 226, 0.3);
     }
 

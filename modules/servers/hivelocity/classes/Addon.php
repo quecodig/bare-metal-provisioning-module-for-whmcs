@@ -473,11 +473,11 @@ SCRIPT;
 			$passwordExpiresInString = '';
 		}
 
-		if(Helpers::isTwentyOne()) {
+		//if(Helpers::isTwentyOne()) {
 			$templateFile = 'templates/tpl/clientareatwentyone.tpl';
-		} else {
-		    $templateFile = 'templates/tpl/clientareasix.tpl';
-		}
+		//} else {
+		    //$templateFile = 'templates/tpl/clientareasix.tpl';
+		//}
 
 		return array(
 			'templatefile' => $templateFile,

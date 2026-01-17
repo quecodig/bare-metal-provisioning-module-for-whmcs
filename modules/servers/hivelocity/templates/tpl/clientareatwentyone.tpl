@@ -7,7 +7,7 @@
 {/literal}
 <div>
 	<div class="alert alert-danger text-center" id="hivelocityMainErrorBox" style="display:none"></div>
-	<div class="tiles mb-4" style="text-align: left;">
+	<div class="tiles mb-4" style="text-align: left;display:none;">
         <div class="row no-gutters">
             <div class="col-6 col-xl-3">
                 <div class="tile">
@@ -53,7 +53,7 @@
 		{if !$orderStatus}
 			<li class="nav-item"><a data-toggle="tab" class="nav-link" href="#tabIpAssignments">{$_LANG.ip_assignments}</a></li>
 			<li class="nav-item"><a data-toggle="tab" class="nav-link" href="#tabBandwidth">{$_LANG.bandwidth}</a></li>
-			{if $ipmisensors}<li class="nav-item"><a data-toggle="tab" class="nav-link" href="#tabIpmi">IPMI</a></li>{/if}
+			<li class="nav-item"><a data-toggle="tab" class="nav-link" href="#tabIpmi">IPMI</a></li>
 		{/if}
 	</ul>
 	<div class="tab-content" style="border-style: solid; border-color: #ddd; padding:15px; padding-top: 20px; padding-bottom: 20px; border-width: 1px; border-top-style: none;" >
@@ -256,29 +256,27 @@
 					<div id="network-graph"></div>
 				</div>
 			</div>
-			{if $ipmisensors}
-				<div id="tabIpmi" class="tab-pane fade">
-					<div class="container" style="width:auto">
-						<div class="row" style="margin-bottom:5px">
-							<div class="col">
-								<h6>IPMI Sensors</h6>
-							</div>
+			<div id="tabIpmi" class="tab-pane fade">
+				<div class="container" style="width:auto">
+					<div class="row" style="margin-bottom:5px">
+						<div class="col">
+							<h6>IPMI Sensors</h6>
 						</div>
-						<div class="row" style="margin-bottom:5px">
-							<div class="col">
-								<table id="" style="width:100%" border="1">
-									{foreach from = $ipmisensors item = sensor}
-										<tr>
-											<td style="width:50%; text-align: center;">{$sensor.name}</td>
-											<td style="width:50%; text-align: center;">{$sensor.unit}</td>
-										</tr>
-									{/foreach}
-								</table>
-							</div>
+					</div>
+					<div class="row" style="margin-bottom:5px">
+						<div class="col">
+							<table id="" style="width:100%" border="1">
+								{foreach from = $ipmisensors item = sensor}
+									<tr>
+										<td style="width:50%; text-align: center;">{$sensor.name}</td>
+										<td style="width:50%; text-align: center;">{$sensor.unit}</td>
+									</tr>
+								{/foreach}
+							</table>
 						</div>
 					</div>
 				</div>
-			{/if}
+            </div>
 		{/if}
 	</div>
 

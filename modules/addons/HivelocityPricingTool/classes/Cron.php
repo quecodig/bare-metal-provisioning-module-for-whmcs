@@ -35,6 +35,9 @@ class Cron {
                 }
             }
         }
+        logActivity("Hivelocity Pricing Tool - Price Change Notify Cron job started to check for price changes in Hivelocity products.");
+        logActivity("Hivelocity Pricing Tool - Price Change Notify Remote product list fetched successfully. Total products: ".count($remoteProductList));
+
         
         if ($debugMode === "on") {
             logModuleCall('Hivelocity','priceChangeNotify','remoteProductList',$remoteProductList);
@@ -46,9 +49,13 @@ class Cron {
             $remoteProductPrice         = 0;
             
             if (array_key_exists($remoteProductId, $remoteProductList)) {
-                $remoteProductId            = $productData["configoption1"];
-                $remoteProductPrice         = $remoteProductList[$remoteProductId]["product_monthly_price"];
-                $disabledPeriods            = $remoteProductList[$remoteProductId]['product_disabled_billing_periods'];
+                $remoteProductId     = $productData["configoption1"];
+                $remoteProductPrice  = $remoteProductList[$remoteProductId]["product_monthly_price"];
+                logActivity("Hivelocity Pricing Tool - Price Change Notify Cron job started to check for price changes in product ID: ".$productId." with remote product ID: ".$remoteProductId." and price: ".$remoteProductPrice);
+                // Normaliza los ciclos deshabilitados antes de guardar
+                $disabledPeriodsRaw  = $remoteProductList[$remoteProductId]['product_disabled_billing_periods'];
+                logActivity("Hivelocity Pricing Tool - Price Change Notify Cron job disabled billing periods: ".print_r($disabledPeriodsRaw, true));
+                $disabledPeriods     = Helpers::normalizeBillingPeriods($disabledPeriodsRaw);
             } else {
                 continue;
             }
@@ -66,7 +73,9 @@ class Cron {
                         'mergefields' => array('hivelocityProductId' => $remoteProductId, 'oldPrice' => number_format($savedRemoteProductPrice['hivelocityProductPrice'], 2)." USD", 'newPrice' => number_format($remoteProductPrice, 2)." USD"),
                     );
                     
+                    logActivity("Intentando enviar correo de cambio de precio para el producto: ".$remoteProductId);
                     $results = localAPI($command, $postData);
+                    logActivity("Resultado del envío de correo: ".print_r($results, true));
                 }
             }
         }
@@ -127,85 +136,52 @@ class Cron {
             set_time_limit(120);
             $localProductId     = Helpers::getProductIdByRemoteProductId($remoteProductId);
 
-            if($localProductId == false && $remoteProductData["stock"] != "unavailable") {
-                //create product
-                $price              = floatval($remoteProductData["product_monthly_price"]);
-            
-                $usdRate            = Helpers::getCurrencyRate("USD");
-                $basePrice          = $price / $usdRate;
+            $profitPercent = isset($addonConfig['profitPercent']) ? floatval($addonConfig['profitPercent']) : 0;
+            $disabledPeriods = Helpers::normalizeBillingPeriods($remoteProductData["product_disabled_billing_periods"]);
+            $price = floatval($remoteProductData["product_monthly_price"]);
+            $pricing = Helpers::getPricingArray($price, $disabledPeriods, $profitPercent);
 
-                $currencyList       = Helpers::getCurrencyList();
-                $pricing            = array();
-                
-                foreach($currencyList as $currency) {
-                    $currencyId     = $currency["id"];
-                    $currencyRate   = $currency["rate"];
-                    $priceConverted = $basePrice * $currencyRate;
-
-                    $billingCycles = [
-                        "monthly"      => 1,
-                        "quarterly"    => 3,
-                        "semiannually" => 6,
-                        "annually"     => 12,
-                        "biennially"   => 24,
-                        "triennially"  => 36
-                    ];
-
-                    $disabledPeriods = $remoteProductData["product_disabled_billing_periods"];
-
-                    foreach ($billingCycles as $cycle => $months) {
-                        if (!in_array($cycle, $disabledPeriods)) {
-                            // Calcular el precio directamente multiplicando por los meses
-                            $finalPrice = $priceConverted * $months;
-                            logModuleCall('Hivelocity','synchronizeProducts','finalPrice',$finalPrice);
-
-                            // Asignar precio al ciclo de facturación
-                            $pricing[$currencyId][$cycle] = round($finalPrice, 2);
-                        }
-                    }
+            if ($localProductId == false && $remoteProductData["stock"] != "unavailable") {
+                // Crear producto
+                $desc = '';
+                if ($remoteProductData["product_bandwidth"]) {
+                    $desc .= "Bandwidth : " . $remoteProductData["product_bandwidth"];
+                }
+                if ($remoteProductData["product_cpu"]) {
+                    $desc .= "<br>CPU : " . $remoteProductData["product_cpu"] . " " . $remoteProductData['product_cpu_cores'];
+                }
+                if ($remoteProductData["product_memory"]) {
+                    $desc .= "<br>Memory : " . $remoteProductData["product_memory"];
+                }
+                if ($remoteProductData["product_drive"]) {
+                    $desc .= "<br>Drive : " . $remoteProductData["product_drive"];
                 }
 
-                $desc='';
-                if($remoteProductData["product_bandwidth"]) {
-                    $desc .="Bandwidth : ".$remoteProductData["product_bandwidth"];
-                }
-
-                if($remoteProductData["product_cpu"]) {
-                    $desc .="<br>CPU : ".$remoteProductData["product_cpu"]." ".$remoteProductData['product_cpu_cores'];
-                }
-
-                if($remoteProductData["product_memory"]) {
-                    $desc .="<br>Memory : ".$remoteProductData["product_memory"];
-                }
-
-                if($remoteProductData["product_drive"]) {
-                    $desc .="<br>Drive : ".$remoteProductData["product_drive"];
-                }
-
-                $result             = WhmcsApi::AddProduct([
-                    "name"              => $remoteProductData["product_id"]." - ".$remoteProductData["product_cpu"]." - ".$remoteProductData["product_cpu_cores"]." - ".$remoteProductData["product_memory"]." - ".$remoteProductData["product_drive"],
-                    "gid"               => $productGroupId,
-                    "type"              => "server",
-                    "paytype"           => "recurring",
-                    "autosetup"         => "payment",
-                    "pricing"           => $pricing,
-                    "servergroupid"     => $serverGroupId,
-                    "module"            => "Hivelocity",
-                    "configoption1"     => $remoteProductId,
-                    "configoption2"     => $billingId,
-                    "description"       => $desc,
+                $result = WhmcsApi::AddProduct([
+                    "name"          => $remoteProductData["product_id"] . " - " . $remoteProductData["product_cpu"] . " - " . $remoteProductData["product_cpu_cores"] . " - " . $remoteProductData["product_memory"] . " - " . $remoteProductData["product_drive"],
+                    "gid"           => $productGroupId,
+                    "type"          => "server",
+                    "paytype"       => "recurring",
+                    "autosetup"     => "payment",
+                    "pricing"       => $pricing,
+                    "servergroupid" => $serverGroupId,
+                    "module"        => "Hivelocity",
+                    "configoption1" => $remoteProductId,
+                    "configoption2" => $billingId,
+                    "description"   => $desc,
                 ]);
 
-                $localProductId     = $result["pid"];
-                logModuleCall('Hivelocity','synchronizeProducts','localProductId',$localProductId);
+                $localProductId = $result["pid"];
+                logModuleCall('Hivelocity', 'synchronizeProducts', 'localProductId', $localProductId);
                 Helpers::addProductCustomField($localProductId);
                 Helpers::createConfigOptions($localProductId, $remoteProductId);
-                $processedProducts[]    = $localProductId;
-            } elseif($localProductId != false && $remoteProductData["stock"] != "unavailable") {
-                //update product
-                logModuleCall('Hivelocity','synchronizeProducts','localProductId',$localProductId);
+                Helpers::saveHivelocityProductPrice($remoteProductId, $price, $disabledPeriods);
+                $processedProducts[] = $localProductId;
+            } elseif ($localProductId != false && $remoteProductData["stock"] != "unavailable") {
+                // Actualizar producto
+                logModuleCall('Hivelocity', 'synchronizeProducts', 'localProductId', $localProductId);
                 Helpers::createConfigOptions($localProductId, $remoteProductId);
-                $processedProducts[]    = $localProductId;
+                $processedProducts[] = $localProductId;
             }
         }
 
@@ -213,16 +189,46 @@ class Cron {
             logModuleCall('Hivelocity','synchronizeProducts','processedProducts',$processedProducts);
         }
         
-        $localProductList   = Helpers::getProductList();
-        foreach($localProductList as $localProductData) {
+
+        $localProductList = Helpers::getProductList();
+        foreach ($localProductList as $localProductData) {
             $localProductId = $localProductData["id"];
-            if(in_array($localProductId, $processedProducts)) {
-                Helpers::unhideProduct($localProductId);
+            $remoteProductId = $localProductData["configoption1"];
+
+            if (isset($remoteProductList[$remoteProductId])) {
+                $remoteProductData = $remoteProductList[$remoteProductId];
+                $remoteProductPrice = floatval($remoteProductData["product_monthly_price"]);
+                $disabledPeriods = Helpers::normalizeBillingPeriods($remoteProductData["product_disabled_billing_periods"]);
+                $profitPercent = isset($addonConfig['profitPercent']) ? floatval($addonConfig['profitPercent']) : 0;
+                
+                // Pasar el objeto completo de datos del producto para obtener precios específicos
+                $pricing = Helpers::getPricingArray($remoteProductData, $disabledPeriods, $profitPercent);
+
+                // Verificar si tenemos al menos un precio válido en cualquier ciclo/moneda
+                $hasValidPrice = false;
+                foreach ($pricing as $currencyId => $cycles) {
+                    foreach ($cycles as $cycle => $price) {
+                        if ($price > 0) {
+                            $hasValidPrice = true;
+                            break 2;
+                        }
+                    }
+                }
+
+                if ($hasValidPrice) {
+                    Helpers::saveHivelocityProductPrice($remoteProductId, $remoteProductPrice, $disabledPeriods);
+
+                    foreach ($pricing as $currencyId => $cycles) {
+                        // Pasamos el array de precios calculados ($cycles) directamente
+                        Helpers::updateAllProductPricing($localProductId, $cycles, $currencyId, $disabledPeriods);
+                    }
+                } else {
+                    Helpers::hideProduct($localProductId);
+                    logActivity("Producto $localProductId ocultado porque no tiene precios válidos en ningún ciclo.");
+                }
             } else {
                 Helpers::hideProduct($localProductId);
-                if ($debugMode === "on") {
-                    logModuleCall('Hivelocity','synchronizeProducts','hideProduct',$localProductId);
-                }
+                logActivity("Producto $localProductId ocultado porque no existe en la API.");
             }
         }
     }

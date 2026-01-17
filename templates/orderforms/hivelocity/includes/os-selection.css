@@ -1,0 +1,43 @@
+{* OS Selection Component for WHMCS Order Forms *}
+
+<div class="os-selector">
+    <div class="row">
+        {foreach from=$configurableoptions item=configoption}
+            {if $configoption.optionname eq "Operating System"}
+                {foreach from=$configoption.options item=option}
+                    <div class="col-sm-3 col-xs-6">
+                        <div class="os-option {if $configoption.selectedvalue eq $option.name}selected{/if}" data-os="{$option.name|lower|replace:' ':'-'}">
+                            <input type="radio" name="configoption[{$configoption.id}]" value="{$option.id}" id="os-option-{$option.id}" 
+                                {if $configoption.selectedvalue eq $option.name}checked="checked"{/if} 
+                                class="hidden" />
+                            <label for="os-option-{$option.id}" class="os-label">
+                                <div class="os-icon">
+                                    {if strpos($option.name, 'Ubuntu') !== false}
+                                        <i class="fab fa-ubuntu"></i>
+                                    {elseif strpos($option.name, 'CentOS') !== false}
+                                        <i class="fab fa-centos"></i>
+                                    {elseif strpos($option.name, 'Debian') !== false}
+                                        <i class="fab fa-debian"></i>
+                                    {elseif strpos($option.name, 'Windows') !== false}
+                                        <i class="fab fa-  'Windows') !== false}
+                                        <i class="fab fa-windows"></i>
+                                    {elseif strpos($option.name, 'FreeBSD') !== false}
+                                        <i class="fab fa-freebsd"></i>
+                                    {elseif strpos($option.name, 'ESXi') !== false || strpos($option.name, 'Proxmox') !== false}
+                                        <i class="fas fa-layer-group"></i>
+                                    {else}
+                                        <i class="fas fa-server"></i>
+                                    {/if}
+                                </div>
+                                <div class="os-name">{$option.name}</div>
+                                {if $option.version}
+                                    <div class="os-version">{$option.version}</div>
+                                {/if}
+                            </label>
+                        </div>
+                    </div>
+                {/foreach}
+            {/if}
+        {/foreach}
+    </div>
+</div>

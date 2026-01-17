@@ -12,7 +12,7 @@ class Helpers {
      * @param int $currencyId ID de la moneda
      * @param array $disabledBillingPeriods Ciclos de facturación deshabilitados
      */
-    static public function updateAllProductPricing($productId, $monthlyPrice, $currencyId, $disabledBillingPeriods = []) {
+    static public function updateAllProductPricing($productId, $pricingData, $currencyId, $disabledBillingPeriods = []) {
         $pdo = Capsule::connection()->getPdo();
 
         // Definir los ciclos de facturación y sus meses
@@ -33,6 +33,21 @@ class Helpers {
         $row = $statement->fetch();
         $pdo->commit();
 
+        // Preparar datos de precios
+        $finalPrices = [];
+        if (is_array($pricingData)) {
+            // Se proporcionó un array de precios específicos (ya calculados o crudos? Asumamos que updateAllProductPricing recibe el precio TOTAL del ciclo que debe guardarse en DB)
+            // Según la implementación de cron, getPricingArray devolverá los precios finales con profit ya aplicado y multiplicados.
+            // Asi que aquí solo asignamos.
+            $finalPrices = $pricingData;
+        } else {
+            // Comportamiento legado: extrapolar desde precio mensual
+            $monthlyPrice = $pricingData;
+            foreach ($billingCycles as $cycle => $months) {
+                $finalPrices[$cycle] = $monthlyPrice * $months;
+            }
+        }
+
         if ($row) {
             $priceId = $row["id"];
 
@@ -41,9 +56,14 @@ class Helpers {
             $updateValues = [];
 
             foreach ($billingCycles as $cycle => $months) {
-                if (!in_array($cycle, $disabledBillingPeriods)) {
+                if (!in_array($cycle, $disabledBillingPeriods) && isset($finalPrices[$cycle])) {
+                    // Validar si el precio es -1 (deshabilitado explicitamente por lógica de negocio) o simplemente update
                     $updateFields[] = "$cycle = ?";
-                    $updateValues[] = $monthlyPrice * $months;
+                    $updateValues[] = $finalPrices[$cycle];
+                } elseif (in_array($cycle, $disabledBillingPeriods)) {
+                    // Opcional: poner a -1 si está deshabilitado? WHMCS usa -1.00 para deshabilitar
+                    $updateFields[] = "$cycle = ?";
+                    $updateValues[] = -1.00;
                 }
             }
 
@@ -63,9 +83,13 @@ class Helpers {
             $placeholders = ["?", "?", "?"];
 
             foreach ($billingCycles as $cycle => $months) {
-                if (!in_array($cycle, $disabledBillingPeriods)) {
+                if (!in_array($cycle, $disabledBillingPeriods) && isset($finalPrices[$cycle])) {
                     $insertFields[] = $cycle;
-                    $insertValues[] = $monthlyPrice * $months;
+                    $insertValues[] = $finalPrices[$cycle];
+                    $placeholders[] = "?";
+                } else {
+                    $insertFields[] = $cycle;
+                    $insertValues[] = -1.00;
                     $placeholders[] = "?";
                 }
             }
@@ -1408,6 +1432,101 @@ class Helpers {
         } else {
             return false;
         }
+    }
+    
+    static public function normalizeBillingPeriods($periods) {
+        $map = [
+            'quarterly'      => 'quarterly',
+            'semi-annually'  => 'semiannually',
+            'semiannually'   => 'semiannually',
+            'annually'       => 'annually',
+            'biennial'       => 'biennially',
+            'biennially'     => 'biennially',
+            'triennial'      => 'triennially',
+            'triennially'    => 'triennially',
+            'monthly'        => 'monthly'
+        ];
+        $normalized = [];
+        foreach ($periods as $period) {
+            if (isset($map[$period])) {
+                $normalized[] = $map[$period];
+            }
+        }
+        return $normalized;
+    }
+    
+    /**
+     * Calcula el precio local con fee para un ciclo y moneda.
+     */
+    static public function calculateLocalPrice($remoteProductPrice, $currencyRate, $usdRate, $months, $profitPercent) {
+        $basePrice = $remoteProductPrice / $usdRate;
+        $priceConverted = $basePrice * $currencyRate;
+        $finalPrice = $priceConverted * $months;
+        $finalPrice += ($finalPrice * $profitPercent / 100);
+        return round($finalPrice, 2);
+    }
+    
+    public static function getPricingArray($remoteProductInput, $disabledPeriods, $profitPercent = 0) {
+        $usdRate = self::getCurrencyRate("USD");
+        $currencyList = self::getCurrencyList();
+        
+        // Mapeo de ciclos internos a campos de API y meses
+        // Clave array: ciclo WHMCS
+        // Value: [meses, campo_api]
+        $billingCycleMap = [
+            "monthly"      => ["months" => 1,  "api_field" => "product_monthly_price"],
+            "quarterly"    => ["months" => 3,  "api_field" => "product_quarterly_price"],
+            "semiannually" => ["months" => 6,  "api_field" => "product_semi_annually_price"],
+            "annually"     => ["months" => 12, "api_field" => "product_annually_price"],
+            "biennially"   => ["months" => 24, "api_field" => "product_biennial_price"],
+            "triennially"  => ["months" => 36, "api_field" => "product_triennial_price"]
+        ];
+
+        $pricing = [];
+
+        foreach ($currencyList as $currency) {
+            $currencyId = $currency["id"];
+            $currencyRate = $currency["rate"];
+
+            foreach ($billingCycleMap as $cycle => $info) {
+                $months = $info['months'];
+                $apiField = $info['api_field'];
+                $basePriceForCycle = 0;
+
+                // Determinar el precio base del periodo (mensualizado) desde la entrada
+                if (is_array($remoteProductInput)) {
+                    // Modo nuevo: Objeto completo de producto
+                    if (isset($remoteProductInput[$apiField]) && floatval($remoteProductInput[$apiField]) > 0) {
+                        $basePriceForCycle = floatval($remoteProductInput[$apiField]);
+                    } elseif (isset($remoteProductInput['product_monthly_price']) && floatval($remoteProductInput['product_monthly_price']) > 0) {
+                         // Fallback si el ciclo específico es 0 pero existe mensual
+                         $basePriceForCycle = floatval($remoteProductInput['product_monthly_price']);
+                    }
+                } else {
+                    // Modo antiguo: Solo precio mensual (float)
+                    $basePriceForCycle = floatval($remoteProductInput);
+                }
+
+                if (!in_array($cycle, $disabledPeriods) && $basePriceForCycle > 0) {
+                    $basePriceUSD = $basePriceForCycle / $usdRate;
+                    $priceConverted = $basePriceUSD * $currencyRate;
+                    
+                    // IMPORTANTE: Suponemos que la API devuelve el precio por mes. 
+                    // Si devolviera precio total, quitar validación anterior.
+                    // Calculamos precio TOTAL para el ciclo
+                    $totalCyclePrice = $priceConverted * $months;
+                    
+                    // Aplicar profit
+                    $totalCyclePrice += ($totalCyclePrice * $profitPercent / 100);
+                    
+                    $pricing[$currencyId][$cycle] = round($totalCyclePrice, 2);
+                } else {
+                    // Ciclo deshabilitado o precio 0
+                     $pricing[$currencyId][$cycle] = -1.00;
+                }
+            }
+        }
+        return $pricing;
     }
     
 }
