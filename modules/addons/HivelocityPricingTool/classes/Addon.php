@@ -61,6 +61,20 @@ class Addon {
                     "Size"              => "25",
                     "Description"       => "Server Group for auto created products."
                 ),
+                "usdExchangeRate" => array (
+                    "FriendlyName"      => "Tasa de Cambio USD (Manual)", 
+                    "Type"              => "text", 
+                    "Size"              => "25",
+                    "Default"           => "1.00",
+                    "Description"       => "Ingrese el valor de 1 USD en su moneda base (ej. 4000 para COP) si no tiene USD configurado. Si tiene USD configurado en el sistema, este valor será ignorado."
+                ),
+                "profitPercent" => array (
+                    "FriendlyName"      => "Porcentaje de Ganancia Global (%)", 
+                    "Type"              => "text", 
+                    "Size"              => "10",
+                    "Default"           => "0",
+                    "Description"       => "Este porcentaje se aplicará automáticamente a todos los productos cuando se ejecute la sincronización automática (Cron). Para actualizaciones manuales, use la herramienta en la página del módulo."
+                ),
             )
         );
         
@@ -111,6 +125,18 @@ class Addon {
         $totalHiddenProducts    = Helpers::countHiddenProducts();
         try {
             if($action == "updatePricing") { 
+            
+                // Obtener tasa USD de manera robusta
+                $usdRate = Helpers::getCurrencyRate("USD");
+                if ($usdRate === false) {
+                    $addonConfig = Helpers::getAdonConfig();
+                    $manualRate = isset($addonConfig['usdExchangeRate']) ? floatval($addonConfig['usdExchangeRate']) : 0;
+                    if ($manualRate > 0) {
+                        $usdRate = 1 / $manualRate;
+                    } else {
+                        $usdRate = 1;
+                    }
+                }
 
                 if($_POST["globalchange"]=='true'){
 
@@ -120,8 +146,12 @@ class Addon {
                         $remoteProductPrice    = Helpers::getHivelocityProductPrice($productData["configoption1"]);
                         $remotePrice           = $remoteProductPrice['hivelocityProductPrice'];
                         $disabledBillingPeriods    = $remoteProductPrice['disabled_billing_periods'] ?? [];
-                        $profit         = ($remotePrice * $globalprofit) / 100;
-                        $price          = $remotePrice + $profit;
+                        
+                        // Convertir precio remoto (USD) a moneda base usando la tasa
+                        $basePrice = $remotePrice / $usdRate;
+                        
+                        $profit         = ($basePrice * $globalprofit) / 100;
+                        $price          = $basePrice + $profit;
                         $currencyId = $_POST["currencyId"];
                         
                         Helpers::updateAllProductPricing($productData["id"], $price, $currencyId, $disabledBillingPeriods);
@@ -135,6 +165,11 @@ class Addon {
                         $price      = $_POST["localPrice"][$index];
                         $currencyId = $_POST["currencyId"];
                         $disabledBillingPeriods = $remoteProductPrice["disabled_billing_periods"] ?? [];
+                        
+                        // NOTA: 'localPrice' enviado por POST ya debería ser el valor final editado por el usuario en la UI.
+                        // Si el usuario lo ve en COP en la tabla (porque el display logic ya fue arreglado), 
+                        // entonces 'localPrice' ya es COP. No necesitamos convertir 'localPrice'.
+                        // Solo necesitamos asegurarnos de que se guarde tal cual.
                         
                         //Helpers::setProductPrice($productId, $price, $currencyId);
                         Helpers::updateAllProductPricing($productId, $price, $currencyId, $disabledBillingPeriods);
@@ -195,7 +230,13 @@ class Addon {
             $usdRate            = Helpers::getCurrencyRate("USD");
             
             if($usdRate === false) {
-                break;
+                 $addonConfig = Helpers::getAdonConfig();
+                 $manualRate = isset($addonConfig['usdExchangeRate']) ? floatval($addonConfig['usdExchangeRate']) : 0;
+                 if ($manualRate > 0) {
+                     $usdRate = 1 / $manualRate;
+                 } else {
+                     $usdRate = 1;
+                 }
             }
             
             $remotePrice = $remotePrice / $usdRate;

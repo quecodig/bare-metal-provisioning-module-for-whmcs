@@ -1468,6 +1468,18 @@ class Helpers {
     
     public static function getPricingArray($remoteProductInput, $disabledPeriods, $profitPercent = 0) {
         $usdRate = self::getCurrencyRate("USD");
+        if (!$usdRate) {
+            $addonConfig = self::getAdonConfig();
+            $manualRate = isset($addonConfig['usdExchangeRate']) ? floatval($addonConfig['usdExchangeRate']) : 0;
+            if ($manualRate > 0) {
+                 // Si el manualRate es 4000 (1 USD = 4000 Base), la tasa WHMCS (Base -> USD) es 1/4000.
+                 // Porque la logica abajo es: PrecioUSD / tasa = PrecioBase. 
+                 // (100 USD / (1/4000)) = 400,000 Base. Correcto.
+                 $usdRate = 1 / $manualRate;
+            } else {
+                $usdRate = 1;
+            }
+        }
         $currencyList = self::getCurrencyList();
         
         // Mapeo de ciclos internos a campos de API y meses
