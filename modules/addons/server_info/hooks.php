@@ -14,66 +14,6 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 require_once 'functions.php';
 
-// add_hook('ClientAreaPageProductDetails', 1, function($vars) {
-// 	// Verificar si se solicita la vista de Snapshots
-// 	if ($vars['filename'] === 'clientarea' && $_GET['action'] === 'productdetails' && $_GET['customaction'] === 'snapshots') {
-// 		// Obtener los servidores ocultos
-// 		$service = Menu::context('service');
-// 		$serverid = "{$service->server}";
-// 		$hiddenServers = Capsule::table('mod_hidden_servers')->pluck('server_id')->toArray();
-
-// 		// Verificar si el servidor está en la lista de ocultos
-// 		if (in_array($serverid, $hiddenServers)) {
-// 			return;
-// 		}
-
-// 		$serviceId = (int) $_GET['id'];
-
-// 		if (!$serviceId) {
-// 			return;
-// 		}
-
-// 		$frequencyLabels = [
-// 			'HOURLY'  => 'Cada Hora',
-// 			'DAILY'   => 'Diariamente',
-// 			'WEEKLY'  => 'Semanalmente',
-// 			'MONTHLY' => 'Mensualmente'
-// 		];
-
-// 		$apiKey = getServerApiKey($serviceId);
-// 		$deviceId = getAssignedDeviceId($serviceId);
-// 		$snapshots = getSnapshots($deviceId, $apiKey);
-// 		$schedules = getSchedules($deviceId, $apiKey);
-// 		foreach ($schedules as &$schedule){
-// 			$intervalType = $schedule['intervalType'];
-// 			$schedule['frecuency'] = $frequencyLabels[$intervalType] ?? $intervalType;
-// 		}
-
-// 		$ca = new ClientArea();
-// 		$ca->setPageTitle('Snapshots');
-// 		$ca->addToBreadCrumb('index.php', 'Inicio');
-// 		$ca->addToBreadCrumb('clientarea.php', 'Área de Cliente');
-// 		$ca->addToBreadCrumb('clientarea.php?action=productdetails&id=' . $serviceId, 'Detalles del Servicio');
-// 		$ca->initPage();
-
-// 		// Ruta de la plantilla dentro del addon
-// 		$templatePath = __DIR__ . '/templates/snapshots.tpl';
-
-// 		// Verificar que la plantilla exista
-// 		if (file_exists($templatePath)) {
-// 			// Asignar variables a la plantilla
-// 			$ca->assign('serviceId', $serviceId);
-// 			$ca->assign('snapshots', $snapshots);
-// 			$ca->assign('schedules', $schedules);
-
-// 			// Mostrar la plantilla
-// 			$ca->setTemplate('/modules/addons/server_info/templates/snapshots.tpl');
-// 			$ca->output();
-// 			exit;
-// 		}
-// 	}
-// });
-
 add_hook('ClientAreaPageProductDetails', 1, function($vars) {
 	if(!isset($_GET['id'])) {
 		return;
@@ -99,6 +39,9 @@ add_hook('ClientAreaPageProductDetails', 1, function($vars) {
 			$postVolumeId = $_POST['volume_id'] ?? $_POST['disk'] ?? '';
 			$postFacilityCode = $_POST['facility_code'] ?? '';
 			$postClientId = $_POST['client_id'] ?? '';
+
+			// --- LIBERAR SESIÓN PARA NO BLOQUEAR WHMCS ---
+			session_write_close();
 
 			if ($ajaxAction === 'create_snapshot') {
 				$snapshotName = $_POST['snapshot_name'] ?? 'Snapshot-' . time();
@@ -144,27 +87,25 @@ add_hook('ClientAreaPageProductDetails', 1, function($vars) {
 				$result = ['success' => true, 'response' => $resultData];
 			}
 
-			// Si la acción fue exitosa, obtenemos las listas actualizadas para devolverlas
+			// Si la acción fue exitosa, obtenemos la lista actualizada correspondiente
 			if ($result['success']) {
-				$updatedSnapshots = getSnapshots($deviceId, $apiKey, $postFacilityCode, $postClientId);
-				$updatedSchedules = getSchedules($deviceId, $apiKey, $postFacilityCode);
-				
-				$frequencyLabels = [
-					'HOURLY'  => 'Cada Hora',
-					'DAILY'   => 'Diariamente',
-					'WEEKLY'  => 'Semanalmente',
-					'MONTHLY' => 'Mensualmente'
-				];
-
-				foreach ($updatedSchedules as &$schedule){
-					$intervalType = $schedule['intervalType'];
-					$schedule['frecuency'] = $frequencyLabels[$intervalType] ?? $intervalType;
+				$updatedData = [];
+				if (strpos($ajaxAction, 'schedule') !== false) {
+					$updatedSchedules = getSchedules($deviceId, $apiKey, $postFacilityCode);
+					$frequencyLabels = [
+						'HOURLY'  => 'Cada Hora',
+						'DAILY'   => 'Diariamente',
+						'WEEKLY'  => 'Semanalmente',
+						'MONTHLY' => 'Mensualmente'
+					];
+					foreach ($updatedSchedules as &$sch) {
+						$sch['frecuency'] = $frequencyLabels[$sch['intervalType']] ?? $sch['intervalType'];
+					}
+					$updatedData['schedules'] = $updatedSchedules;
+				} else {
+					$updatedData['snapshots'] = getSnapshots($deviceId, $apiKey, $postFacilityCode, $postClientId);
 				}
-
-				$result['updated_data'] = [
-					'snapshots' => $updatedSnapshots,
-					'schedules' => $updatedSchedules
-				];
+				$result['updated_data'] = $updatedData;
 			}
 
 			if (ob_get_length()) ob_clean();
@@ -174,86 +115,62 @@ add_hook('ClientAreaPageProductDetails', 1, function($vars) {
 		}
 	}
 
-	// --- 2. CARGA NORMAL DE LA PÁGINA (CON API PESADA) ---
-	if($_GET['customaction'] === 'snapshots') {
+	// --- 2. CARGA NORMAL DE LA PÁGINA (CON API PESADA - SEPARADA) ---
+	$customAction = $_GET['customaction'] ?? '';
+	if($customAction === 'snapshots' || $customAction === 'schedules') {
 		$service = Menu::context('service');
 		if(!$service) {
 			return;
 		}
 
-		// Obtener detalles del VPS para volumeId y otros parámetros
+		// --- LIBERAR SESIÓN PARA NO BLOQUEAR WHMCS ---
+		session_write_close();
+
+		// Obtener detalles del VPS solo una vez si es necesario
 		$vpsDetails = getVPSDetails($deviceId, $apiKey);
 		$volumeId = $vpsDetails['volumeId'];
 		$facilityCode = $vpsDetails['facilityCode'];
 		$clientId = $vpsDetails['clientId'];
 
-		$snapshots = getSnapshots($deviceId, $apiKey, $facilityCode, $clientId);
-		$schedules = getSchedules($deviceId, $apiKey, $facilityCode);
-
-		$frequencyLabels = [
-			'HOURLY'  => 'Cada Hora',
-			'DAILY'   => 'Diariamente',
-			'WEEKLY'  => 'Semanalmente',
-			'MONTHLY' => 'Mensualmente'
-		];
-
-		foreach ($schedules as &$schedule){
-			$intervalType = $schedule['intervalType'];
-			$schedule['frecuency'] = $frequencyLabels[$intervalType] ?? $intervalType;
-		}
-
 		$ca = new ClientArea();
-		$ca->setPageTitle('Snapshots');
 		$ca->addToBreadCrumb('index.php', 'Inicio');
 		$ca->addToBreadCrumb('clientarea.php', 'Área de Cliente');
 		$ca->addToBreadCrumb('clientarea.php?action=productdetails&id=' . $serviceId, 'Detalles del Servicio');
+
+		$ca->assign('serviceId', $serviceId);
+		$ca->assign('volumeId', $volumeId);
+		$ca->assign('facilityCode', $facilityCode);
+		$ca->assign('clientId', $clientId);
+
+		if ($customAction === 'snapshots') {
+			$snapshots = getSnapshots($deviceId, $apiKey, $facilityCode, $clientId);
+			$ca->setPageTitle('Gestión de Snapshots');
+			$ca->assign('snapshots', $snapshots);
+			$templatePath = __DIR__ . '/templates/snapshots.tpl';
+		} else {
+			$schedules = getSchedules($deviceId, $apiKey, $facilityCode);
+			$frequencyLabels = [
+				'HOURLY'  => 'Cada Hora',
+				'DAILY'   => 'Diariamente',
+				'WEEKLY'  => 'Semanalmente',
+				'MONTHLY' => 'Mensualmente'
+			];
+			foreach ($schedules as &$schedule){
+				$schedule['frecuency'] = $frequencyLabels[$schedule['intervalType']] ?? $schedule['intervalType'];
+			}
+			$ca->setPageTitle('Programación de Snapshots');
+			$ca->assign('schedules', $schedules);
+			$templatePath = __DIR__ . '/templates/schedules.tpl';
+		}
+
 		$ca->initPage();
 
-		// Ruta de la plantilla dentro del addon
-		$templatePath = __DIR__ . '/templates/snapshots.tpl';
-
-		// Verificar que la plantilla exista
 		if (file_exists($templatePath)) {
-			// Asignar variables a la plantilla
-			$ca->assign('serviceId', $serviceId);
-			$ca->assign('snapshots', $snapshots);
-			$ca->assign('schedules', $schedules);
-			$ca->assign('volumeId', $volumeId);
-			$ca->assign('facilityCode', $facilityCode);
-			$ca->assign('clientId', $clientId);
-
-			// Mostrar la plantilla
-			$ca->setTemplate('/modules/addons/server_info/templates/snapshots.tpl');
+			$ca->setTemplate('/modules/addons/server_info/templates/' . basename($templatePath));
 			$ca->output();
 			exit;
 		}
 	}
-});
-
-add_hook('ClientAreaPageProductDetails', 1, function ($vars) {
-    if (!isset($_GET['id'])) {
-        return;
-    }
-
-    $serviceId = (int) $_GET['id'];
-    if (!$serviceId) {
-        return;
-    }
-
-    $secondarySidebar = Menu::context('secondarySidebar');
-    if ($secondarySidebar) {
-        $secondarySidebar->addChild('customTab', [
-            'label' => 'Información General',
-            'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId,
-            'icon' => 'fa-info-circle',
-            'order' => 1,
-            'attributes' => [
-                'id' => 'customTabLink',
-                'class' => 'custom-tab-link',
-                'data-serviceid' => $serviceId,
-            ],
-        ]);
-    }
 });
 
 /**
@@ -268,6 +185,8 @@ function fetch_server_hivelocity($apiUrl, $apiKey, $clientIp) {
 		'Accept: application/json',
 		'X-Client-IP: ' . $clientIp,
 	]);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
 	try {
 		$response = curl_exec($ch);
@@ -288,7 +207,7 @@ function fetch_server_hivelocity($apiUrl, $apiKey, $clientIp) {
 	}
 }
 
-add_hook('ClientAreaSecondarySidebar', 1, function (MenuItem $secondarySidebar) {
+add_hook('ClientAreaSecondarySidebar', 1000, function (MenuItem $secondarySidebar) {
 	if ($_GET['action'] === 'productdetails' && isset($_GET['id'])) {
 		$serviceId = (int) $_GET['id'];
 		$service = Menu::context('service');
@@ -327,6 +246,9 @@ add_hook('ClientAreaSecondarySidebar', 1, function (MenuItem $secondarySidebar) 
 					$apiKey = $server_host->accesshash; // Suponiendo que el accesshash es la clave de la API
 
 					$deviceId = getAssignedDeviceId($serviceId);
+
+					// --- LIBERAR SESIÓN PARA NO BLOQUEAR WHMCS ---
+					session_write_close();
 
 					// Obtener la contraseña desde la API
 					$serverDetails = fetch_server_hivelocity('https://' . $apiUrl . '/api/v2/vps/' . $deviceId, $apiKey, '205.209.118.18');
@@ -392,6 +314,57 @@ add_hook('ClientAreaSecondarySidebar', 1, function (MenuItem $secondarySidebar) 
 						'icon'  => 'fa-camera',
 						'order' => 10,
 					));
+
+					$servicePanel->addChild('SnapshotSchedules', array(
+						'label' => 'Programar Snapshots',
+						'uri'   => 'clientarea.php?action=productdetails&id=' . $serviceId . '&customaction=schedules',
+						'icon'  => 'fa-clock',
+						'order' => 11,
+					));
+
+					// Intentar localizar el sidebar de navegación/tabs nativo
+					$sideTabs = $secondarySidebar->getChild('Service Details Tabs');
+					if (!$sideTabs) $sideTabs = $secondarySidebar->getChild('Información General'); // Intento alternativo por nombre común
+					if (!$sideTabs) $sideTabs = $secondarySidebar->getChild('Service Details Overview');
+
+					if ($sideTabs) {
+						// Añadir Snapshots al sidebar detectado
+						$sideTabs->addChild('SnapshotsTab', [
+							'label' => 'Snapshots',
+							'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId . '&customaction=snapshots',
+							'icon' => 'fa-camera',
+							'order' => 60,
+						]);
+
+						$sideTabs->addChild('SchedulesTab', [
+							'label' => 'Programación',
+							'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId . '&customaction=schedules',
+							'icon' => 'fa-clock',
+							'order' => 61,
+						]);
+
+						if ($_GET['customaction'] === 'snapshots' || $_GET['customaction'] === 'schedules') {
+							$activeTab = ($_GET['customaction'] === 'snapshots') ? 'SnapshotsTab' : 'SchedulesTab';
+							$sideTabs->getChild($activeTab)->setCurrent(true);
+							
+							// Corregir todos los posibles links de retorno para evitar hashes que no funcionan fuera de la vista general
+							$backLinks = ['Information', 'Overview', 'Service Details', 'Información', 'Detalles del Servicio'];
+							foreach ($backLinks as $linkName) {
+								if ($sideTabs->getChild($linkName)) {
+									$sideTabs->getChild($linkName)->setCurrent(false);
+									$sideTabs->getChild($linkName)->setUri('clientarea.php?action=productdetails&id=' . $serviceId);
+								}
+							}
+						}
+					} elseif ($_GET['customaction'] === 'snapshots') {
+						// Si realmente no existe ningún contenedor nativo (caso raro), creamos uno de retorno limpio
+						$secondarySidebar->addChild('ReturnToDetails', [
+							'label' => 'Información General',
+							'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId,
+							'icon' => 'fa-info-circle',
+							'order' => 1,
+						]);
+					}
 
 					// Añadir botón para abrir el popup de la consola noVNC
 					$secondarySidebar->addChild('noVNCConsole', array(
@@ -499,29 +472,6 @@ add_hook('ClientAreaSecondarySidebar', 1, function (MenuItem $secondarySidebar) 
 			));
 		}
 	}
-});
-
-add_hook('ClientAreaPrimaryNavbar', 1, function ($primaryNavbar) {
-    if ($_GET['action'] === 'productdetails' && isset($_GET['id'])) {
-        $serviceId = (int)$_GET['id'];
-        $service = Menu::context('service');
-        if (!$service) return;
-
-        $productDetails = $primaryNavbar->getChild('Service Details Tabs');
-        if (is_null($productDetails)) {
-            $productDetails = $primaryNavbar;
-        }
-
-        $productDetails->addChild('Snapshots', [
-            'label' => 'Snapshots',
-            'uri' => 'clientarea.php?action=productdetails&id=' . $serviceId . '&customaction=snapshots',
-            'order' => 50,
-        ]);
-
-        if ($_GET['customaction'] === 'snapshots') {
-            $productDetails->getChild('Snapshots')->setCurrent(true);
-        }
-    }
 });
 
 add_hook('ClientAreaHeaderOutput', 1, function (array $vars) {

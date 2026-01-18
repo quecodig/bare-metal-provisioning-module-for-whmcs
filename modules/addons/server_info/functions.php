@@ -15,6 +15,8 @@ function getSnapshots($vpsId, $apiKey, $facilityCode = '', $clientId = '') {
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
         "Content-Type: application/json"
@@ -35,6 +37,8 @@ function getSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
         "Content-Type: application/json"
@@ -52,6 +56,8 @@ function getSchedules($vpsId, $apiKey, $facilityCode = '') {
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
         "Content-Type: application/json"
@@ -82,6 +88,8 @@ function createSnapshot($volumeId, $snapshotName, $apiKey, $facilityCode = 'TPA1
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -104,6 +112,8 @@ function deleteSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
@@ -135,6 +145,8 @@ function restoreSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1', $clientId
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -182,6 +194,8 @@ function createSnapshotSchedule($volumeId, $scheduleData, $apiKey, $facilityCode
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -204,6 +218,8 @@ function getSnapshotSchedule($scheduleId, $apiKey, $facilityCode = 'TPA1') {
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
         "Content-Type: application/json"
@@ -226,6 +242,8 @@ function deleteSnapshotSchedule($scheduleId, $apiKey, $facilityCode = 'TPA1') {
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
@@ -245,6 +263,8 @@ function getVPSVolumes($vpsId, $apiKey, $facilityCode = '', $clientId = '') {
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
         "Content-Type: application/json"
@@ -263,6 +283,8 @@ function getVPSDetails($vpsId, $apiKey) {
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "X-API-KEY: $apiKey",
         "Content-Type: application/json"
