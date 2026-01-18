@@ -16,7 +16,7 @@ function getSnapshots($vpsId, $apiKey, $facilityCode = '', $clientId = '') {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -36,7 +36,7 @@ function getSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -53,7 +53,7 @@ function getSchedules($vpsId, $apiKey, $facilityCode = '') {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -64,7 +64,7 @@ function getSchedules($vpsId, $apiKey, $facilityCode = '') {
 }
 
 // Crear Snapshot
-function createSnapshot($volumeId, $snapshotName, $apiKey, $facilityCode = 'TPA1') {
+function createSnapshot($volumeId, $snapshotName, $apiKey, $facilityCode = 'TPA1', $clientId = '') {
     // Official Endpoint based on User provided OpenAPI: 
     // POST https://core.hivelocity.net/api/v2/vps/snapshot
     // Body keys: volumeId, name, facilityCode
@@ -85,7 +85,7 @@ function createSnapshot($volumeId, $snapshotName, $apiKey, $facilityCode = 'TPA1
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -106,7 +106,7 @@ function deleteSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -119,7 +119,7 @@ function deleteSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
 
 
 // Restaurar Snapshot
-function restoreSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
+function restoreSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1', $clientId = '') {
     // Official Endpoint based on User provided OpenAPI: 
     // POST https://core.hivelocity.net/api/v2/vps/snapshot/{snapshotId}
     // Body required: { "facilityCode": "TPA1" }
@@ -138,7 +138,7 @@ function restoreSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -151,7 +151,7 @@ function restoreSnapshot($snapshotId, $apiKey, $facilityCode = 'TPA1') {
 // --- SCHEDULES ---
 
 // Crear Schedule
-function createSnapshotSchedule($volumeId, $scheduleData, $apiKey, $facilityCode = 'TPA1') {
+function createSnapshotSchedule($volumeId, $scheduleData, $apiKey, $facilityCode = 'TPA1', $clientId = '') {
     // Official Endpoint based on User provided OpenAPI: 
     // POST https://core.hivelocity.net/api/v2/vps/snapshotSchedule
     // Required: facilityCode, hour, intervalType, maxSnapshots, minute, timezone, volumeId
@@ -185,7 +185,7 @@ function createSnapshotSchedule($volumeId, $scheduleData, $apiKey, $facilityCode
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -205,7 +205,7 @@ function getSnapshotSchedule($scheduleId, $apiKey, $facilityCode = 'TPA1') {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -228,7 +228,7 @@ function deleteSnapshotSchedule($scheduleId, $apiKey, $facilityCode = 'TPA1') {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
 
@@ -238,32 +238,71 @@ function deleteSnapshotSchedule($scheduleId, $apiKey, $facilityCode = 'TPA1') {
     return json_decode($response, true);
 }
 
+function getVPSVolumes($vpsId, $apiKey, $facilityCode = '', $clientId = '') {
+    $url = "https://core.hivelocity.net/api/v2/vps/volume?deviceId=$vpsId";
+    if ($facilityCode) $url .= "&facilityCode=$facilityCode";
+    if ($clientId) $url .= "&clientId=$clientId";
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "X-API-KEY: $apiKey",
+        "Content-Type: application/json"
+    ]);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    logActivity("Hivelocity API Response for VPS Volumes $vpsId: " . $response);
+    
+    return json_decode($response, true);
+}
+
 function getVPSDetails($vpsId, $apiKey) {
     $url = "https://core.hivelocity.net/api/v2/vps/$vpsId";
     
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "Authorization: Bearer $apiKey",
+        "X-API-KEY: $apiKey",
         "Content-Type: application/json"
     ]);
     
     $response = curl_exec($ch);
     curl_close($ch);
+    
+    logActivity("Hivelocity API Response for VPS $vpsId: " . $response);
+    
     $data = json_decode($response, true);
 
     $details = [
         'volumeId' => '',
-        'facilityCode' => $data['facilityCode'] ?? 'TPA1',
+        'facilityCode' => $data['facilityCode'] ?? ($data['location']['facilityCode'] ?? 'TPA1'),
         'clientId' => $data['clientId'] ?? ''
     ];
 
-    if (isset($data['primaryDisk']) && isset($data['primaryDisk']['id'])) {
-        $details['volumeId'] = $data['primaryDisk']['id'];
-    } elseif (isset($data['primary_volume_id'])) {
-        $details['volumeId'] = $data['primary_volume_id'];
-    } elseif (isset($data['volumes']) && !empty($data['volumes'])) {
-        $details['volumeId'] = $data['volumes'][0]['id'];
+    // Intentar obtener el volumen desde el nuevo endpoint /vps/volume
+    $volumes = getVPSVolumes($vpsId, $apiKey, $details['facilityCode'], $details['clientId']);
+    if (is_array($volumes)) {
+        foreach ($volumes as $vol) {
+            if (isset($vol['type']) && $vol['type'] === 'ROOT') {
+                $details['volumeId'] = $vol['volumeId'];
+                break;
+            }
+        }
+        // Si no se encontró ROOT, tomar el primero disponible
+        if (empty($details['volumeId']) && !empty($volumes)) {
+            $details['volumeId'] = $volumes[0]['volumeId'] ?? $volumes[0]['id'] ?? '';
+        }
+    }
+
+    // Fallback a los datos del VPS si el endpoint de volúmenes falló o no devolvió nada
+    if (empty($details['volumeId'])) {
+        if (isset($data['primaryVolumeId']) && !empty($data['primaryVolumeId'])) {
+            $details['volumeId'] = $data['primaryVolumeId'];
+        } elseif (isset($data['primaryDisk']) && isset($data['primaryDisk']['id'])) {
+            $details['volumeId'] = $data['primaryDisk']['id'];
+        }
     }
     
     return $details;

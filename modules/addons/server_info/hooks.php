@@ -84,16 +84,111 @@ add_hook('ClientAreaPageProductDetails', 1, function($vars) {
 		return;
 	}
 
+	$apiKey = getServerApiKey($serviceId);
+	$deviceId = getAssignedDeviceId($serviceId);
+
+	// --- 1. MANEJO DE ACCIONES AJAX (PRIORIDAD ALTA - ANTES DE API PESADA) ---
+	if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+		$ajaxAction = $_POST['ajax_action'] ?? $_GET['ajax_action'] ?? '';
+		
+		if ($ajaxAction) {
+			logActivity("Snapshots Debug: Receving AJAX Action: " . $ajaxAction . " for Service ID: " . $serviceId);
+			$result = ['success' => false, 'response' => 'Acción no permitida: ' . $ajaxAction];
+
+			// Metadatos enviados desde el frontend para optimización
+			$postVolumeId = $_POST['volume_id'] ?? $_POST['disk'] ?? '';
+			$postFacilityCode = $_POST['facility_code'] ?? '';
+			$postClientId = $_POST['client_id'] ?? '';
+
+			if ($ajaxAction === 'create_snapshot') {
+				$snapshotName = $_POST['snapshot_name'] ?? 'Snapshot-' . time();
+				$resultData = createSnapshot($postVolumeId, $snapshotName, $apiKey, $postFacilityCode, $postClientId);
+				$result = ['success' => (isset($resultData['taskId']) || isset($resultData['id'])), 'response' => $resultData];
+			} elseif ($ajaxAction === 'create_schedule') {
+				$frequency = $_POST['schedule'] ?? 'daily';
+				$time = $_POST['time'] ?? '00:00';
+				$hour = 0; $minute = 0;
+				if (strpos($time, ':') !== false) {
+					list($h, $m) = explode(':', $time);
+					$hour = (int)$h;
+					$minute = (int)$m;
+				}
+				
+				$scheduleData = [
+					'intervalType' => $frequency,
+					'hour' => $hour,
+					'minute' => $minute,
+					'timezone' => 'UTC',
+					'maxSnapshots' => 1
+				];
+
+				if ($frequency == 'weekly') {
+					$tplDay = (int)$_POST['weekDay'];
+					$scheduleData['weekday'] = ($tplDay === 0) ? 7 : $tplDay;
+				}
+				if ($frequency == 'monthly') $scheduleData['day'] = 1;
+
+				$resultData = createSnapshotSchedule($postVolumeId, $scheduleData, $apiKey, $postFacilityCode, $postClientId);
+				$result = ['success' => isset($resultData['snapshotScheduleId']), 'response' => $resultData];
+			} elseif ($ajaxAction === 'delete_snapshot') {
+				$snapshotId = $_POST['snapshot_id'] ?? '';
+				$resultData = deleteSnapshot($snapshotId, $apiKey, $postFacilityCode);
+				$result = ['success' => true, 'response' => $resultData];
+			} elseif ($ajaxAction === 'restore_snapshot') {
+				$snapshotId = $_POST['snapshot_id'] ?? '';
+				$resultData = restoreSnapshot($snapshotId, $apiKey, $postFacilityCode, $postClientId);
+				$result = ['success' => true, 'response' => $resultData];
+			} elseif ($ajaxAction === 'delete_schedule') {
+				$scheduleId = $_POST['schedule_id'] ?? '';
+				$resultData = deleteSnapshotSchedule($scheduleId, $apiKey, $postFacilityCode);
+				$result = ['success' => true, 'response' => $resultData];
+			}
+
+			// Si la acción fue exitosa, obtenemos las listas actualizadas para devolverlas
+			if ($result['success']) {
+				$updatedSnapshots = getSnapshots($deviceId, $apiKey, $postFacilityCode, $postClientId);
+				$updatedSchedules = getSchedules($deviceId, $apiKey, $postFacilityCode);
+				
+				$frequencyLabels = [
+					'HOURLY'  => 'Cada Hora',
+					'DAILY'   => 'Diariamente',
+					'WEEKLY'  => 'Semanalmente',
+					'MONTHLY' => 'Mensualmente'
+				];
+
+				foreach ($updatedSchedules as &$schedule){
+					$intervalType = $schedule['intervalType'];
+					$schedule['frecuency'] = $frequencyLabels[$intervalType] ?? $intervalType;
+				}
+
+				$result['updated_data'] = [
+					'snapshots' => $updatedSnapshots,
+					'schedules' => $updatedSchedules
+				];
+			}
+
+			if (ob_get_length()) ob_clean();
+			header('Content-Type: application/json');
+			echo json_encode($result);
+			exit;
+		}
+	}
+
+	// --- 2. CARGA NORMAL DE LA PÁGINA (CON API PESADA) ---
 	if($_GET['customaction'] === 'snapshots') {
 		$service = Menu::context('service');
 		if(!$service) {
 			return;
 		}
 
-		$apiKey = getServerApiKey($serviceId);
-		$deviceId = getAssignedDeviceId($serviceId);
-		$snapshots = getSnapshots($deviceId, $apiKey);
-		$schedules = getSchedules($deviceId, $apiKey);
+		// Obtener detalles del VPS para volumeId y otros parámetros
+		$vpsDetails = getVPSDetails($deviceId, $apiKey);
+		$volumeId = $vpsDetails['volumeId'];
+		$facilityCode = $vpsDetails['facilityCode'];
+		$clientId = $vpsDetails['clientId'];
+
+		$snapshots = getSnapshots($deviceId, $apiKey, $facilityCode, $clientId);
+		$schedules = getSchedules($deviceId, $apiKey, $facilityCode);
 
 		$frequencyLabels = [
 			'HOURLY'  => 'Cada Hora',
@@ -123,6 +218,9 @@ add_hook('ClientAreaPageProductDetails', 1, function($vars) {
 			$ca->assign('serviceId', $serviceId);
 			$ca->assign('snapshots', $snapshots);
 			$ca->assign('schedules', $schedules);
+			$ca->assign('volumeId', $volumeId);
+			$ca->assign('facilityCode', $facilityCode);
+			$ca->assign('clientId', $clientId);
 
 			// Mostrar la plantilla
 			$ca->setTemplate('/modules/addons/server_info/templates/snapshots.tpl');

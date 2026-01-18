@@ -16,7 +16,7 @@ function server_info_clientarea($vars) {
         require_once __DIR__ . '/functions.php';
     }
 
-    $action = $_GET['action'] ?? '';
+    $action = $_GET['addon_action'] ?? $_GET['action'] ?? '';
     $serviceId = $_GET['serviceid'] ?? 0;
 
     if (!$serviceId) {
